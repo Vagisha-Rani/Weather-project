@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather App</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            margin-top: 20px;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            text-align: center;
+        }
+        #weatherData {
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        #favCities {
+            list-style-type: none;
+            padding: 0;
+            margin-bottom: 20px; /* Add some margin below the list */
+        }
+        #favCities li {
+            margin: 5px 0;
+            padding: 8px;
+            border: 1px solid #eee;
+            border-radius: 3px;
+            background-color: #f9f9f9;
+            display: flex; /* Use flexbox for layout */
+            justify-content: space-between; /* Space between city name and button */
+            align-items: center; /* Vertically center items */
+        }
+        #favCities li button {
+            margin-left: 10px; /* Add some space between city and button */
+            background-color: #f44336; /* Red background */
+            color: white; /* White text */
+            border: none; /* Remove default border */
+            padding: 5px 10px; /* Padding for the button */
+            border-radius: 3px; /* Rounded corners */
+            cursor: pointer; /* Show a pointer on hover */
+            font-size: 0.8em; /* Smaller font size */
+        }
+        #favCities li button:hover {
+            background-color: #d32f2f; /* Darker red on hover */
+        }
+        #clearFavCities {
+            background-color: #4CAF50;  /* Green background */
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            margin-top: 10px;
+        }
+
+        #clearFavCities:hover {
+            background-color: #45a049; /* Darker green */
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Weather App</h1>
+        <input type="text" id="cityInput" placeholder="Enter City Name" required>
+        <button id="submitBtn">Search</button>
+        <div id="weatherData"></div>
+        <br><br>
+        <strong>Favourite Cities</strong>
+        <ul id="favCities"></ul>
+        <button id="clearFavCities">Clear All Favourite Cities</button>
+    </div>
+    <script>
+        const API_KEY = 'b1fd6e14799699504191b6bdbcadfc35';
+        const BASE_URL = `https://api.openweathermap.org/data/2.5/weather`;
+        const cityInput = document.getElementById('cityInput');
+        const submitBtn = document.getElementById('submitBtn');
+        const weatherDataDisplay = document.getElementById('weatherData');
+        const favCitiesList = document.getElementById('favCities');
+        const clearFavCitiesBtn = document.getElementById('clearFavCities');
+
+
+        // Function to fetch weather data
+        async function fetchWeatherData(city) {
+            try {
+                const url = `${BASE_URL}?q=${city}&appid=${API_KEY}&units=metric`;
+                const response = await fetch(url);
+                const data = await response.json();
+                console.log('Weather Data:', data);
+                displayWeather(data);
+                storeWeatherInLocalStorage(city, data);
+                displayFavouriteCities(); // Update the displayed list
+            } catch (error) {
+                console.error('Error fetching weather data:', error);
+                weatherDataDisplay.textContent = 'Failed to fetch weather data.';
+            }
+        }
+
+        // Function to display weather data on the page
+        function displayWeather(data) {
+            if (data.cod === 200) {
+                const cityName = data.name;
+                const temperature = data.main.temp;
+                const description = data.weather[0].description;
+                weatherDataDisplay.textContent = `Weather in ${cityName}: ${temperature}°C, ${description}`;
+            } else {
+                weatherDataDisplay.textContent = data.message || 'City not found.';
+            }
+        }
+
+        // Function to store weather data in local storage
+        function storeWeatherInLocalStorage(city, data) {
+            try {
+                localStorage.setItem(`weather-${city.toLowerCase()}`, JSON.stringify(data));
+                // Optionally, you can maintain a list of favourite cities
+                let favouriteCities = localStorage.getItem('favouriteCities');
+                favouriteCities = favouriteCities ? JSON.parse(favouriteCities) : [];
+                if (!favouriteCities.includes(city.toLowerCase())) {
+                    favouriteCities.push(city.toLowerCase());
+                    localStorage.setItem('favouriteCities', JSON.stringify(favouriteCities));
+                }
+            } catch (error) {
+                console.error('Error storing data in local storage:', error);
+            }
+        }
+
+        // Function to display favourite cities from local storage
+        function displayFavouriteCities() {
+            favCitiesList.innerHTML = ''; // Clear the current list
+            let favouriteCities = localStorage.getItem('favouriteCities');
+            favouriteCities = favouriteCities ? JSON.parse(favouriteCities) : [];
+            favouriteCities.forEach(city => {
+                const listItem = document.createElement('li');
+                listItem.textContent = city;
+
+                // Add a remove button for each city
+                const removeButton = document.createElement('button');
+                removeButton.textContent = 'Remove';
+                removeButton.addEventListener('click', (event) => {
+                    event.stopPropagation(); // Prevent the li click if button is clicked.
+                    removeCityFromFavourites(city);
+                });
+
+                listItem.appendChild(removeButton); // Append the button to the list item
+                favCitiesList.appendChild(listItem);
+            });
+        }
+
+        function removeCityFromFavourites(cityToRemove) {
+            let favouriteCities = localStorage.getItem('favouriteCities');
+            favouriteCities = favouriteCities ? JSON.parse(favouriteCities) : [];
+
+            // Create a new array without the city to remove
+            const updatedCities = favouriteCities.filter(city => city !== cityToRemove);
+
+            // Update local storage
+            localStorage.setItem('favouriteCities', JSON.stringify(updatedCities));
+            localStorage.removeItem(`weather-${cityToRemove}`); //remove the weather data
+            displayFavouriteCities(); // Re-render the list
+        }
+
+        // Event listener for the search button
+        submitBtn.addEventListener('click', () => {
+            const city = cityInput.value.trim();
+            if (city) {
+                fetchWeatherData(city);
+                cityInput.value = ''; // Clear the input field
+            } else {
+                alert('Please enter a city name.');
+            }
+        });
+
+        // Event listener for clearing all favorite cities
+        clearFavCitiesBtn.addEventListener('click', () => {
+            localStorage.removeItem('favouriteCities');
+            // Remove all individual weather data entries
+            let favouriteCities = localStorage.getItem('favouriteCities');
+            favouriteCities = favouriteCities ? JSON.parse(favouriteCities) : []; //important to avoid error
+            favouriteCities.forEach(city => {
+                localStorage.removeItem(`weather-${city}`);
+            });
+
+            displayFavouriteCities(); // Update the display
+        });
+
+        // Display favourite cities on page load
+        displayFavouriteCities();
+    </script>
+</body>
+</html>
